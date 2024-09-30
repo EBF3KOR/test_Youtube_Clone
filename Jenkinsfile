@@ -15,26 +15,26 @@ pipeline {
 
         stage('Setup') {
             steps {
-                sh "nvm use ${NODE_VERSION} || nvm install ${NODE_VERSION}"
-                sh 'npm ci'
+                bat "nvm use ${NODE_VERSION} || nvm install ${NODE_VERSION}"
+                bat 'npm ci'
             }
         }
 
         stage('Lint') {
             steps {
-                sh 'npx eslint src'
+                bat 'npx eslint src'
             }
         }
 
         stage('Test') {
             steps {
-                sh 'npm test -- --watchAll=false'
+                bat 'npm test -- --watchAll=false'
             }
         }
 
         stage('Build') {
             steps {
-                sh 'npm run build'
+                bat 'npm run build'
             }
         }
 
@@ -42,17 +42,26 @@ pipeline {
             steps {
                 script {
                     // Check if a process is already running on PORT 3000
-                    def isPortInUse = sh(script: "lsof -i:${PORT}", returnStatus: true) == 0
+                    def isPortInUse = bat(script: "netstat -ano | findstr :${PORT}", returnStatus: true) == 0
                     if (isPortInUse) {
                         // Kill the process using PORT 3000
-                        sh "lsof -ti:${PORT} | xargs kill -9"
+                        def pid = bat(script: "netstat -ano | findstr :${PORT} | findstr LISTENING | awk '{print \$5}'", returnStdout: true).trim()
+                        if (pid) {
+                            bat "taskkill /PID ${pid} /F"
+                        }
                     }
-                    
+
                     // Start the application
-                    sh "nohup npm start > app.log 2>&1 &"
+                    bat "start /B npm start > app.log 2>&1"
                     
                     // Wait for the application to start
-                    sh "until lsof -i:${PORT} > /dev/null 2>&1; do sleep 1; done"
+                    script {
+                        sleep(time: 5, unit: 'SECONDS') // wait for a bit
+                        def checkUrl = "curl -f http://localhost:${PORT}"
+                        retry(3) {
+                            bat checkUrl
+                        }
+                    }
                     echo "Application started successfully on port ${PORT}"
                 }
             }
@@ -60,7 +69,7 @@ pipeline {
 
         stage('Verify Deployment') {
             steps {
-                sh "curl -f http://localhost:${PORT}"
+                bat "curl -f http://localhost:${PORT}"
                 echo "Application is accessible at http://localhost:${PORT}"
             }
         }
