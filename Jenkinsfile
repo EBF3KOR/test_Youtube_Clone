@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        NODE_VERSION = '16.14.0'
+        NODE_VERSION = '7.18.6'
         PORT = '3000'
     }
 
